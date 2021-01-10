@@ -1,6 +1,6 @@
 ---
 title: Re-analysis of the nodal marginal zone lymphoma somatic variants from WES data using GATK
-tags: GATK38, NMZL
+tags: GATK, NMZL
 renderNumberedHeading: true
 Re-analysis of the nodal marginal zone lymphoma somatic variants from WES data
 ---
