@@ -41,7 +41,7 @@ samtools sort -o Germline1_Sorted.bam Germline1.bam -@15
 The paramiter "-q 20“ will filter out the reads with quality score lower than 20.
 
 
-Use picard tool to mark duplicates in the sorted bam file
+#### Use picard tool to mark duplicates in the sorted bam file
 ```{bash}
 java -jar /home/fate/picard/build/libs/picard.jar MarkDuplicates \
      I=Tumor1_Sorted.bam \ 
@@ -49,6 +49,9 @@ java -jar /home/fate/picard/build/libs/picard.jar MarkDuplicates \
      M=Tumor1_dup_metrics.txt \
      CREATE_INDEX=true
 ```
+
+#### Realign the reads
+
 The mapping algorithms that are used in the initial step of aligning the data to the reference are prone to various types of artifacts.The GATK programe can identifies intervals that need to be realigned, and can determine the optimal consensus sequence and performs the actual realignment of reads.
 ```{bash}
 java -jar GenomeAnalysisTK.jar \
@@ -73,7 +76,7 @@ java -jar GenomeAnalysisTK.jar \
 This step will perform realignment of the intervals from the last step.
 
 
-Base quality score re-calibration (BQSR) 
+#### Base quality score re-calibration (BQSR) 
 ```{bash}
 java -jar GenomeAnalysisTK.jar \
      -T BaseRecalibrator \
@@ -93,6 +96,8 @@ java -jar GenomeAnalysisTK.jar \
      -BQSR recal_data.grp \
      -o recal_reads_Tumor1.bam
 ```
+
+#### Re-calibrated quality scores
 This step generates a "recal_reads.bam" file which contains all the original reads but with the re-calibrated quality scores. The original quality scores are discarded.
 
 
@@ -109,6 +114,8 @@ java -jar GenomeAnalysisTK.jar Mutect2  \
      -bamout Tumor_normal1.bam  #Optional
 ```
 Cause there is the matched germline data, so GATK Mutect2 will only call the somatic variants. The raw somatic variants are in the .vcf file. Mutect2 can also output a bam file containing the assembled haplotypes and locally realigned reads.
+
+#### Filter out possible cross-sample contamination
 
 ```{bash}
 java -jar GenomeAnalysisTK.jar GetPileupSummaries \
@@ -140,12 +147,13 @@ java -jar GenomeAnalysisTK.jar FilterMutectCalls \
 ```
 Filter out the possible contaminated variants based on the result from the previous step.
 
+#### Use ensembl VEP(Variant Effect Predictor) to predict the functional effects of genomic variants
+
 ```{bash}
 vep -i filtered_somatic1.vcf.gz -o somatic1VEP.txt -offline 
 ```
 
-Use ensembl VEP(Variant Effect Predictor) to predict the functional effects of genomic variants.
-
+#### Compare our results(upper) with the original results(lower).
 ![Somatic variant of 17 NMZL samples](./files/VariantsCount.png)
 
 ![Somatic variant of 18 NMZL samples from original paper](./files/Fig1.png)
