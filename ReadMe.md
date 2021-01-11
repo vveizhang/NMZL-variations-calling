@@ -1,15 +1,15 @@
----
-title: Re-analysis of the nodal marginal zone lymphoma somatic variants from WES data using GATK
-tags: GATK, NMZL
-renderNumberedHeading: true
-Re-analysis of the nodal marginal zone lymphoma somatic variants from WES data
----
+
+# Re-analysis of the nodal marginal zone lymphoma somatic variants from WES data
+
 The original paper was published in 2013, the raw sequencing data is available on GEO. And the variant calling program they used in the paper is barely used by others. So it would be interesting to re-analyse this dataset.
 
+
+## GATK Somatic variant discovery Workflow
 Follow the tutorial of GATK website.
 
 ![Somatic variant discovery Workflow](./files/Pipeline.png)
 
+#### To generate analysis-ready reads BAM file
 Download the fastq files from GEO.
 
 Use fastqc to check the quality of the fastq files
