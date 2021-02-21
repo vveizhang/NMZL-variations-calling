@@ -1,3 +1,4 @@
+# Mapping the fastq data to the reference and convert from sam to bam.
 rule bwa_map:
     input:
         "data/genome.fa",
@@ -7,6 +8,7 @@ rule bwa_map:
     shell:
         "bwa mem {input} -R '@RG\tID:group1\tSM:{wildcards.sample}\tPL:illumina\tLB:lib1\tPU:unit1' -t 32 -M | samtools view -Sb - > {output}"
 
+# Sort the bam file.
 rule samtools_sort:
     input:
         "mapped_reads/{sample}.bam"
@@ -16,6 +18,7 @@ rule samtools_sort:
         "samtools sort -T sorted_reads/{wildcards.sample} "
         "-O bam {input} > {output}"
 
+# Use picard tool to mark duplicates in the sorted bam file
 rule Picard_MarkDuplicates:
     input:
         "/sorted_reads/{sample}.bam"
@@ -25,6 +28,8 @@ rule Picard_MarkDuplicates:
     shell:
         "java -jar picard.jar MarkDuplicates -I {input}  -O {output.outbam} -M {output.metrics}  --CREATE_INDEX=true "
 
+
+# Realign the reads
 rule GATK_Realigner:
     input:
         "/DupDeleted_reads/{sample}.DupDeleted_bam"
@@ -33,6 +38,8 @@ rule GATK_Realigner:
     shell:
         "java -jar GenomeAnalysisTK.jar -T RealignerTargetCreator -R data/genome.fa -known data/gold_standard.indels.hg38.vcf -I {input}  -O {output.outbam} "
 
+
+# Perform realignment of the intervals from the last step.
 rule GATK_IndelRealigner:
     input:
         "/DupDeleted_reads/{sample}.DupDeleted_bam"
@@ -42,6 +49,8 @@ rule GATK_IndelRealigner:
     shell:
         "java -jar GenomeAnalysisTK.jar -T IndelRealigner -R data/genome.fa -known data/gold_standard.indels.hg38.vcf -I {input}  -O {output.outbam} "
 
+
+# Generates a GATKReport file contains the covariation data will be used for re-calibration of the base qualities.
 rule GATK_BaseRecalibrator:
     input:
         "Realigned/{sample}_realigned.bam"
@@ -51,6 +60,8 @@ rule GATK_BaseRecalibrator:
     shell:
         "java -jar GenomeAnalysisTK.jar -T IndelRealigner -R data/genome.fa -knownSites data/gold_standard.indels.hg38.vcf -knownSites data/dbsnp138.vcf -I {input}  -O {output.outbam} "
 
+
+#  Re-calibration of the base qualities
 rule GATK_PrintReads:
     input:
         "Realigned/{sample}_Recaled.bam"
@@ -59,6 +70,8 @@ rule GATK_PrintReads:
     shell:
         "java -jar GenomeAnalysisTK.jar -T IndelRealigner -R data/genome.fa -BQSR ReCal/{sample}.grp -I {input}  -O {output.outbam} "
 
+
+#  Call raw somatic variants
 rule GATK_Mutect2:
     input:
         "Realigned/{sample}_Recaled_reads.bam"
@@ -67,6 +80,8 @@ rule GATK_Mutect2:
     shell:
         "java -jar GenomeAnalysisTK.jar Mutect2 -R data/genome.fa --germline-resource hg38_af-only-gnomad.hg38.vcf.gz --pon somatic-hg38_1000g_pon.hg38.vcf.gz -I {input}  -O {output.vcf} "
 
+
+# Generates a tabulates metrics which can be used with cross contamination detection.
 rule GATK_PileupSummaries:
     input:
         "Realigned/{sample}_Recaled_reads.bam"
@@ -75,6 +90,8 @@ rule GATK_PileupSummaries:
     shell:
         "java -jar GenomeAnalysisTK.jar GetPileupSummaries -V common_biallelic.vcf.gz -L common_biallelic.vcf.gz -I {input}  -O {output.table} "
 
+
+# Calculates the reads from cross-sample contamination.
 rule GATK_CalculateContamination:
     input:
         "{sample}_pileups.table"
@@ -83,6 +100,8 @@ rule GATK_CalculateContamination:
     shell:
         "java -jar GenomeAnalysisTK.jar CalculateContamination -segments {sample}_segments.tsv -I {input}  -O {output.table} "
 
+
+# Filter out the possible contaminated variants based on the result from the previous step.
 rule GATK_FilterMutectCalls:
     input:
         "{sample}_contamination.table"
