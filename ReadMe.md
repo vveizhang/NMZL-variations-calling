@@ -13,7 +13,7 @@ Follow the tutorial of GATK website.
 
 
 
-![Snakemake file](./files/GATK_Snakefile)
+![Snakemake file contains the pipeline](https://github.com/vveizhang/NMZL-variations-calling/blob/main/files/GATK_Snakefile)
 
 #### To generate analysis-ready reads BAM file
 Download the fastq files from GEO.
