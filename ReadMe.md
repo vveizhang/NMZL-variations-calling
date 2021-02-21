@@ -9,6 +9,12 @@ Follow the tutorial of GATK website.
 
 ![Somatic variant discovery Workflow](./files/Pipeline.png)
 
+
+
+
+
+![Snakemake file](./files/GATK_Snakefile)
+
 #### To generate analysis-ready reads BAM file
 Download the fastq files from GEO.
 
