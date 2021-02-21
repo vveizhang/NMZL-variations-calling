@@ -1,0 +1,92 @@
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        "data/samples/{sample}.fastq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} -R '@RG\tID:group1\tSM:{wildcards.sample}\tPL:illumina\tLB:lib1\tPU:unit1' -t 32 -M | samtools view -Sb - > {output}"
+
+rule samtools_sort:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam"
+    shell:
+        "samtools sort -T sorted_reads/{wildcards.sample} "
+        "-O bam {input} > {output}"
+
+rule Picard_MarkDuplicates:
+    input:
+        "/sorted_reads/{sample}.bam"
+    output:
+        outbam="/DupDeleted_reads/{sample}.DupDeleted_bam",
+        metrics="/DupDeleted_reads/{sample}_dupl_metrics.txt"
+    shell:
+        "java -jar picard.jar MarkDuplicates -I {input}  -O {output.outbam} -M {output.metrics}  --CREATE_INDEX=true "
+
+rule GATK_Realigner:
+    input:
+        "/DupDeleted_reads/{sample}.DupDeleted_bam"
+    output:
+        outList="/DupDeleted_reads/{sample}.list",
+    shell:
+        "java -jar GenomeAnalysisTK.jar -T RealignerTargetCreator -R data/genome.fa -known data/gold_standard.indels.hg38.vcf -I {input}  -O {output.outbam} "
+
+rule GATK_IndelRealigner:
+    input:
+        "/DupDeleted_reads/{sample}.DupDeleted_bam"
+        "/DupDeleted_reads/{sample}.list"
+    output:
+        "Realigned/{sample}_realigned.bam"
+    shell:
+        "java -jar GenomeAnalysisTK.jar -T IndelRealigner -R data/genome.fa -known data/gold_standard.indels.hg38.vcf -I {input}  -O {output.outbam} "
+
+rule GATK_BaseRecalibrator:
+    input:
+        "Realigned/{sample}_realigned.bam"
+    output:
+        "ReCal/{sample}_Recaled.bam"
+        "ReCal/{sample}.grp"
+    shell:
+        "java -jar GenomeAnalysisTK.jar -T IndelRealigner -R data/genome.fa -knownSites data/gold_standard.indels.hg38.vcf -knownSites data/dbsnp138.vcf -I {input}  -O {output.outbam} "
+
+rule GATK_PrintReads:
+    input:
+        "Realigned/{sample}_Recaled.bam"
+    output:
+        "ReCal/{sample}_Recaled_reads.bam"
+    shell:
+        "java -jar GenomeAnalysisTK.jar -T IndelRealigner -R data/genome.fa -BQSR ReCal/{sample}.grp -I {input}  -O {output.outbam} "
+
+rule GATK_Mutect2:
+    input:
+        "Realigned/{sample}_Recaled_reads.bam"
+    output:
+        "{sample}_variats_called.vcf"
+    shell:
+        "java -jar GenomeAnalysisTK.jar Mutect2 -R data/genome.fa --germline-resource hg38_af-only-gnomad.hg38.vcf.gz --pon somatic-hg38_1000g_pon.hg38.vcf.gz -I {input}  -O {output.vcf} "
+
+rule GATK_PileupSummaries:
+    input:
+        "Realigned/{sample}_Recaled_reads.bam"
+    output:
+        "{sample}_pileups.table"
+    shell:
+        "java -jar GenomeAnalysisTK.jar GetPileupSummaries -V common_biallelic.vcf.gz -L common_biallelic.vcf.gz -I {input}  -O {output.table} "
+
+rule GATK_CalculateContamination:
+    input:
+        "{sample}_pileups.table"
+    output:
+        "{sample}_contamination.table"
+    shell:
+        "java -jar GenomeAnalysisTK.jar CalculateContamination -segments {sample}_segments.tsv -I {input}  -O {output.table} "
+
+rule GATK_FilterMutectCalls:
+    input:
+        "{sample}_contamination.table"
+    output:
+        "{sample}_filtered.vcf"
+    shell:
+        "java -jar GenomeAnalysisTK.jar FilterMutectCalls -R data/genome.fa -segments {sample}_segments.tsv -I {input}  -O {output.vcf} "
